@@ -4,6 +4,7 @@ const cors = require("cors");
 const dns = require("dns");
 const urlParser = require("url");
 const app = express();
+const shortId = require("shortid");
 
 const bodyParser = require("body-parser");
 const mongoose = require("mongoose");
@@ -16,7 +17,8 @@ mongoose.connect(process.env.MONGO_URI, {
 console.log(mongoose.connection.readyState);
 
 const urlSchema = new Schema({
-  url: String, // String is shorthand for {type: String}
+  original_url: String, // String is shorthand for {type: String}
+  short_url: String,
 });
 
 const Url = mongoose.model("Url", urlSchema);
@@ -44,10 +46,10 @@ app.post("/api/shorturl", function (req, res) {
   const preUrl = dns.lookup(
     urlParser.parse(bodyUrl).hostname,
     (err, address) => {
-      console.log(err);
       if (!address) return res.json({ error: "Invalid URL" });
 
-      const url = new Url({ url: bodyUrl });
+      const urlCode = shortId.generate();
+      const url = new Url({ original_url: bodyUrl, short_url: urlCode });
       url.save((err, data) => {
         if (err) return console.error(err);
         res.json(data);
@@ -56,11 +58,11 @@ app.post("/api/shorturl", function (req, res) {
   );
 });
 
-app.get("/api/shorturl/:id", function (req, res) {
-  const id = req.params.id;
-  Url.findById(id, (err, data) => {
+app.get("/api/shorturl/:short_url", function (req, res) {
+  const short_url = req.params.short_url;
+  Url.findOne({ short_url: short_url }, (err, data) => {
     if (!data) return res.json({ error: "Invalid URL" });
-    res.redirect(data.url);
+    res.redirect(data.original_url);
   });
 });
 
